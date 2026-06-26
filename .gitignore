@@ -34,5 +34,8 @@ standalone_admin_password.txt
 data/
 *.parquet
 
+# 로컬 개발 도구 상태 (OMC 오케스트레이션 등)
+.omc/
+
 # macOS
 .DS_Store
