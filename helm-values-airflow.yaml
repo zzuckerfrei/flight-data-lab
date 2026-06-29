@@ -15,3 +15,17 @@ apiServer:
       - name: api-server
         port: "{{ .Values.ports.apiServer }}"
         nodePort: 30080
+
+# DAG 동기화: git-sync 사이드카가 이 repo를 주기적으로 pull해 scheduler·dag-processor·worker Pod에 DAG를 공급.
+# private repo라 SSH deploy key로 인증(개인키는 k8s Secret airflow-ssh-secret의 gitSshKey).
+dags:
+  gitSync:
+    enabled: true
+    repo: git@github.com:zzuckerfrei/flight-data-lab.git  # SSH clone URL (deploy key가 이 repo에 등록됨)
+    branch: main
+    rev: HEAD
+    subPath: dags                # repo 안에서 DAG가 있는 폴더
+    sshKeySecret: airflow-ssh-secret   # 개인키를 담은 k8s Secret 이름 (키: gitSshKey)
+    period: 5s                   # 동기화 주기 (개발 중 빠른 반영)
+    knownHosts: |                # github.com 호스트키(공개정보) — 중간자 공격 방지용 검증
+      github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
