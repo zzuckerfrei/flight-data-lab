@@ -29,3 +29,32 @@ dags:
     period: 5s                   # 동기화 주기 (개발 중 빠른 반영)
     knownHosts: |                # github.com 호스트키(공개정보) — 중간자 공격 방지용 검증
       github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+
+# 시크릿 주입 (모든 Airflow 컨테이너 = scheduler·worker task Pod 포함).
+# 비밀은 k8s Secret에만 두고 values엔 '참조'만 둔다(평문 X).
+# 시크릿/참조형 환경변수는 extraEnv(템플릿 문자열)로 정의. (chart의 env는 name/value 리터럴만 허용)
+extraEnv: |
+  # OpenSky OAuth2: DAG가 토큰 발급에 사용 (k8s Secret opensky-credential → 환경변수)
+  - name: OPENSKY_CLIENT_ID
+    valueFrom:
+      secretKeyRef:
+        name: opensky-credential
+        key: client_id
+  - name: OPENSKY_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: opensky-credential
+        key: client_secret
+  # GCP: Google 라이브러리가 이 경로의 SA 키 파일을 자동 인증에 사용 (표준 환경변수)
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    value: /opt/airflow/secrets/gcp/key.json
+
+# GCP SA 키(JSON)를 파일로 마운트 (k8s Secret gcp-sa-key → /opt/airflow/secrets/gcp/key.json)
+volumes:
+  - name: gcp-sa-key
+    secret:
+      secretName: gcp-sa-key
+volumeMounts:
+  - name: gcp-sa-key
+    mountPath: /opt/airflow/secrets/gcp
+    readOnly: true
