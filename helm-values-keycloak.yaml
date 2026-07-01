@@ -1,0 +1,35 @@
+# codecentric/keycloakx 7.2.0 → Keycloak 26.6.2 (Quarkus)
+# 학습용 IdP: Airflow SSO(OIDC) 연동 검증용. dev 모드(start-dev) + H2 파일 DB.
+# 프로덕션이면 args=start + database.vendor=postgres + hostname 고정. (#41)
+# 배포: helm install keycloak codecentric/keycloakx --version 7.2.0 -n keycloak -f helm-values-keycloak.yaml
+
+database:
+  vendor: dev-file   # H2 "파일" DB (start-dev 기본 저장소, dev-mem 인메모리와 대비)
+
+# 실행 모드: start-dev (개발 모드). chart가 command/args를 자동으로 안 넣어주므로 명시 필수.
+# start-dev가 hostname 엄격검증 off + HTTP 허용을 자동 처리 → 관련 env 불필요.
+command:
+  - "/opt/keycloak/bin/kc.sh"
+args:
+  - "start-dev"
+
+# admin 초기 계정 (Keycloak 26: KC_BOOTSTRAP_ADMIN_*)
+extraEnv: |
+  - name: KC_BOOTSTRAP_ADMIN_USERNAME
+    value: "admin"
+  - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+    value: "admin"
+
+# H2 파일 영속: /opt/keycloak/data(H2 저장 경로)를 PVC로 마운트 → 파드 재생성돼도 realm·client·user 유지.
+# StatefulSet volumeClaimTemplates는 파드마다 PVC 자동 생성.
+volumeClaimTemplates: |
+  - metadata:
+      name: keycloak-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+extraVolumeMounts: |
+  - name: keycloak-data
+    mountPath: /opt/keycloak/data

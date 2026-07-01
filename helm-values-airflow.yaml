@@ -5,6 +5,9 @@
 # Task별 Pod 격리 실행 전략. (기본값은 CeleryExecutor)
 executor: "KubernetesExecutor"
 
+# API secret key를 static으로 고정(k8s Secret 참조). dynamic이면 파드 재생성 시 OAuth state/세션이 깨짐.
+apiSecretKeySecretName: airflow-api-secret
+
 # Airflow 3.x의 UI/REST는 api-server가 담당한다(2.x의 webserver 대체).
 # 기본 service type은 ClusterIP(클러스터 내부 전용) → NodePort로 바꿔 kind 노드의 30080 포트로 노출.
 # kind-config.yaml의 extraPortMappings(host 8080 → node 30080)와 연결되어 브라우저 localhost:8080으로 접근.
@@ -48,6 +51,25 @@ extraEnv: |
   # GCP: Google 라이브러리가 이 경로의 SA 키 파일을 자동 인증에 사용 (표준 환경변수)
   - name: GOOGLE_APPLICATION_CREDENTIALS
     value: /opt/airflow/secrets/gcp/key.json
+  # Keycloak SSO (auth manager). dev: 파드 시작 시 provider 설치(_PIP_ADDITIONAL_REQUIREMENTS).
+  # server_url은 브라우저·파드 공통 접근 URL(host.docker.internal:8081)로 통일 → OIDC issuer 일관.
+  - name: _PIP_ADDITIONAL_REQUIREMENTS
+    value: "apache-airflow-providers-keycloak"
+  - name: AIRFLOW__CORE__AUTH_MANAGER
+    value: "airflow.providers.keycloak.auth_manager.keycloak_auth_manager.KeycloakAuthManager"
+  - name: AIRFLOW__KEYCLOAK_AUTH_MANAGER__CLIENT_ID
+    value: "airflow"
+  - name: AIRFLOW__KEYCLOAK_AUTH_MANAGER__CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: keycloak-airflow-client
+        key: client_secret
+  - name: AIRFLOW__KEYCLOAK_AUTH_MANAGER__REALM
+    value: "homelab"
+  - name: AIRFLOW__KEYCLOAK_AUTH_MANAGER__SERVER_URL
+    value: "http://host.docker.internal:8081/auth/"   # trailing slash 필수: python-keycloak urljoin이 /auth 유지하도록
+  - name: AIRFLOW__API__BASE_URL
+    value: "http://localhost:8080"
 
 # GCP SA 키(JSON)를 파일로 마운트 (k8s Secret gcp-sa-key → /opt/airflow/secrets/gcp/key.json)
 volumes:
