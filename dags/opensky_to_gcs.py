@@ -1,9 +1,10 @@
-"""OpenSky → GCS (#16, FD-W112)
+"""OpenSky → GCS (#18, FD-W202)
 
-단일 영역의 state vector 스냅샷을 raw JSON 그대로 GCS(bronze)에 저장한다.
-- 인증: OAuth2 client credentials (시크릿은 k8s Secret → env)
-- 적재: raw 불변 보존(Bronze). 덮어쓰지 않고 스냅샷 시각으로 파티셔닝 경로에 추가.
-- MVP: 단일 영역 + 수동 트리거. 다영역·스케줄·멱등성은 W2.
+4개 영역의 state vector 스냅샷을 10분 주기로 raw JSON 그대로 GCS(bronze)에 저장한다.
+- 다영역: Dynamic Task Mapping(.expand)으로 영역 수만큼 task 자동 생성(영역별 독립 성공/실패).
+- 스케줄: 10분 간격, catchup=False (과거분 소급 안 함, 현재 스냅샷만).
+- 인증: OAuth2 client credentials (시크릿은 k8s Secret → env). 매 실행 새 토큰이라 30분 만료 무관.
+- 적재: raw 불변 보존(Bronze). 스냅샷 시각으로 파티셔닝, 같은 스냅샷=같은 경로.
 """
 import json
 import os
@@ -19,12 +20,17 @@ TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protoc
 STATES_URL = "https://opensky-network.org/api/states/all"
 BUCKET = "flight-data-lab-501011-bronze"
 
-# 단일 테스트 영역 (서유럽 비교군). 다영역은 W2에서 config화.
-REGION = "west_europe"
-BBOX = {"lamin": 45, "lamax": 52, "lomin": 2, "lomax": 12}
+# 수집 영역 4곳 (docs/collection-regions.md). 각 원소가 op_kwargs로 fetch_and_store(region, bbox)에 매핑됨.
+# 분쟁2(우크라·중동) + 비교2(서유럽·한국). 호출당 합계 10크레딧 × 144회/일 = 1,440/일(4000의 36%).
+REGIONS = [
+    {"region": "ukraine",     "bbox": {"lamin": 44, "lamax": 53, "lomin": 22,  "lomax": 40}},
+    {"region": "middle_east", "bbox": {"lamin": 25, "lamax": 40, "lomin": 38,  "lomax": 63}},
+    {"region": "west_europe", "bbox": {"lamin": 45, "lamax": 52, "lomin": 2,   "lomax": 12}},
+    {"region": "korea",       "bbox": {"lamin": 33, "lamax": 39, "lomin": 124, "lomax": 132}},
+]
 
 
-def fetch_and_store():
+def fetch_and_store(region, bbox):
     # 1) OAuth2 토큰 발급 (client credentials). 시크릿은 env에서만 읽는다.
     token_res = requests.post(
         TOKEN_URL,
@@ -41,7 +47,7 @@ def fetch_and_store():
     # 2) /states/all 호출 (bbox로 영역 한정)
     states_res = requests.get(
         STATES_URL,
-        params=BBOX,
+        params=bbox,
         headers={"Authorization": f"Bearer {access_token}"},
         timeout=60,
     )
@@ -51,23 +57,24 @@ def fetch_and_store():
 
     # 3) GCS 업로드 (raw JSON 그대로 = Bronze, 불변)
     dt = pendulum.from_timestamp(snapshot_time, tz="UTC").format("YYYYMMDD")
-    path = f"opensky/raw/region={REGION}/dt={dt}/states_{snapshot_time}.json"
+    path = f"opensky/raw/region={region}/dt={dt}/states_{snapshot_time}.json"
     client = storage.Client()  # GOOGLE_APPLICATION_CREDENTIALS(ADC)로 자동 인증
     blob = client.bucket(BUCKET).blob(path)
     blob.upload_from_string(json.dumps(payload), content_type="application/json")
 
     aircraft = len(payload.get("states") or [])
-    print(f"saved gs://{BUCKET}/{path} (aircraft={aircraft})")
+    print(f"saved gs://{BUCKET}/{path} (region={region} aircraft={aircraft})")
 
 
 with DAG(
     dag_id="opensky_to_gcs",
-    schedule=None,  # 수동 트리거 (MVP)
+    schedule="*/10 * * * *",  # 10분 간격
     start_date=pendulum.datetime(2026, 6, 30, tz="UTC"),
-    catchup=False,
+    catchup=False,  # 시작일~현재 사이 밀린 실행분 소급 안 함
     tags=["opensky", "bronze"],
 ) as dag:
-    fetch_and_store_task = PythonOperator(
+    # Dynamic Task Mapping: REGIONS 길이만큼 task 자동 생성. 각 dict가 op_kwargs로 전달됨.
+    fetch_and_store_task = PythonOperator.partial(
         task_id="fetch_and_store",
         python_callable=fetch_and_store,
-    )
+    ).expand(op_kwargs=REGIONS)
