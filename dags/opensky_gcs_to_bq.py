@@ -51,7 +51,17 @@ def load_gcs_to_bq(**context):
     bq = bigquery.Client()
     job = bq.load_table_from_json(
         rows, f"{TABLE}${dt}",
-        job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
+        job_config=bigquery.LoadJobConfig(
+            write_disposition="WRITE_TRUNCATE",
+            # 스키마 명시 필수: WRITE_TRUNCATE는 테이블을 재정의(autodetect)하는데,
+            # raw(dict)를 RECORD로 추론해 테이블의 JSON 타입과 충돌(400). 명시로 JSON 강제.
+            schema=[
+                bigquery.SchemaField("snapshot_time", "TIMESTAMP"),
+                bigquery.SchemaField("region", "STRING"),
+                bigquery.SchemaField("raw", "JSON"),
+                bigquery.SchemaField("_loaded_at", "TIMESTAMP"),
+            ],
+        ),
     )
     job.result()  # 완료 대기(실패면 예외 → task 실패 → Airflow 재시도)
     print(f"적재 완료: dt={dt}, {job.output_rows}행 ({len(REGIONS)}영역)")
