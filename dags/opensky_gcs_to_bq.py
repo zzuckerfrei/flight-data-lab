@@ -45,11 +45,13 @@ def load_gcs_to_bq(**context):
         print(f"적재 대상 없음 (dt={dt})")
         return
 
-    # load_table_from_json: 봉투 리스트를 bronze에 덧붙여 적재(WRITE_APPEND)
+    # 멱등 적재(#19): dt 파티션을 통째로 교체(WRITE_TRUNCATE) → 재실행해도 행 수 불변.
+    #  - destination에 $dt(파티션 데코레이터) → "그 날짜 파티션만" 대상(다른 날짜 무영향)
+    #  - WRITE_TRUNCATE → 기존 삭제+새 적재를 원자적으로(중간 상태 없음)
     bq = bigquery.Client()
     job = bq.load_table_from_json(
-        rows, TABLE,
-        job_config=bigquery.LoadJobConfig(write_disposition="WRITE_APPEND"),
+        rows, f"{TABLE}${dt}",
+        job_config=bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE"),
     )
     job.result()  # 완료 대기(실패면 예외 → task 실패 → Airflow 재시도)
     print(f"적재 완료: dt={dt}, {job.output_rows}행 ({len(REGIONS)}영역)")
