@@ -1,0 +1,33 @@
+# dbt 프로젝트 정체성 파일. dbt는 명령 실행 시 이 파일을 찾아 "여기가 프로젝트 루트"임을 안다.
+# 폴더는 flight-data-lab(하이픈)이지만 dbt 내부 name은 언더스코어(파이썬 식별자 규칙).
+name: 'flight_data'
+version: '1.0.0'
+config-version: 2
+
+# 사용할 연결 프로필 이름. profiles.yml 최상위 키와 반드시 일치.
+profile: 'flight_data'
+
+# dbt가 각 자원을 찾는 경로.
+model-paths: ["models"]        # SELECT = 변환 단위(model)
+macro-paths: ["macros"]        # Jinja 매크로 / 커스텀 test
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+
+# dbt 산출물(컴파일된 SQL, 패키지). git 제외(.gitignore).
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# 레이어별 materialization + 데이터셋(스키마) 분리.
+# staging = view(가볍게, 항상 최신 raw 반영). marts = table(조회 빠르게).
+# +schema로 레이어별 BigQuery 데이터셋 분리(현업 표준: bronze/staging/marts 경계).
+models:
+  flight_data:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts
