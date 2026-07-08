@@ -1,0 +1,79 @@
+version: 2
+
+# staging 모델의 문서 + 데이터 품질 테스트.
+# 핵심: raw는 key 없는 배열을 index로 꺼내므로 "필드가 밀리면" 조용히 틀린다.
+#       → 범위/허용값 테스트로 밀림을 잡는 게 방어선. (테스트는 의미 있는 컬럼만, 문서는 전체)
+models:
+  - name: stg_states
+    description: "bronze raw JSON을 항공기 1대=1행으로 펼치고 타입 부여(17필드). OpenSky state vector index 기반."
+    columns:
+      # --- 수집 메타 ---
+      - name: snapshot_time
+        description: "스냅샷 시각(TIMESTAMP). bronze에서 복제, 파티션 기준."
+        data_tests:
+          - not_null
+      - name: region
+        description: "수집 영역. bronze에서 복제."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ukraine', 'middle_east', 'west_europe', 'korea']
+      - name: _loaded_at
+        description: "BQ 적재 시각. bronze에서 복제(관측성·freshness 기준)."
+
+      # --- state vector 17필드 (index 0~16) ---
+      - name: icao24
+        description: "index 0. 항공기 고유 주소(hex). 식별자."
+        data_tests:
+          - not_null
+      - name: callsign
+        description: "index 1. 콜사인(공백 trim, 빈값 NULL). null 허용."
+      - name: origin_country
+        description: "index 2. 등록 국가."
+      - name: time_position
+        description: "index 3. 마지막 위치 갱신 시각(epoch)."
+      - name: last_contact
+        description: "index 4. 마지막 신호 수신 시각(epoch)."
+      - name: longitude
+        description: "index 5. 경도. 범위 벗어나면 필드 밀림 의심."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: -180
+              max_value: 180
+      - name: latitude
+        description: "index 6. 위도. 범위 벗어나면 필드 밀림 의심."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: -90
+              max_value: 90
+      - name: baro_altitude
+        description: "index 7. 기압 고도(m). null 가능."
+      - name: on_ground
+        description: "index 8. 지상 여부(BOOL)."
+      - name: velocity
+        description: "index 9. 속도(m/s). null 가능. 음수 불가."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: true_track
+        description: "index 10. 진행 방향(도, 북=0). null 가능. 0~360."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 360
+      - name: vertical_rate
+        description: "index 11. 수직 속도(m/s, +상승). null 가능."
+      - name: sensors
+        description: "index 12. 수신 센서 ID 배열(JSON). 보통 null."
+      - name: geo_altitude
+        description: "index 13. 기하 고도(m). null 가능."
+      - name: squawk
+        description: "index 14. 트랜스폰더 코드. null 가능."
+      - name: spi
+        description: "index 15. 특수목적 지시자(BOOL)."
+      - name: position_source
+        description: "index 16. 위치 출처(0=ADS-B, 1=ASTERIX, 2=MLAT, 3=FLARM)."
+        data_tests:
+          - accepted_values:
+              values: [0, 1, 2, 3]
+              quote: false          # INT 컬럼 → 값을 문자열로 감싸지 않고 숫자 그대로 비교

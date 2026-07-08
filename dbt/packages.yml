@@ -1,0 +1,5 @@
+# dbt 패키지 의존성. dbt_utils = 커뮤니티 표준 유틸(accepted_range 등 추가 테스트/매크로).
+# 설치: dbt deps  → dbt_packages/ 에 다운로드(git 제외).
+packages:
+  - package: dbt-labs/dbt_utils
+    version: [">=1.1.0", "<2.0.0"]

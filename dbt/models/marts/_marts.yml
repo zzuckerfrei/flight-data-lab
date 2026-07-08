@@ -1,0 +1,39 @@
+version: 2
+
+# marts 모델의 문서 + 데이터 품질 테스트.
+# 핵심 지표 density가 비어있거나(집계 누락) 음수(로직 오류)면 안 된다.
+models:
+  - name: mart_region_density
+    description: >
+      영역·스냅샷별 항공기 밀도(면적 정규화). 분쟁지역 영공 회피의 정량 지표.
+      density = 공중 항공기 수 / 영역 면적(sq°). 1행 = 1스냅샷 × 1영역.
+      stg_states(항공기 1행) + region_area(seed, 면적)를 조인·집계한 gold 레이어.
+    columns:
+      - name: snapshot_time
+        description: "스냅샷 시각(TIMESTAMP)."
+        data_tests:
+          - not_null
+      - name: region
+        description: "수집 영역."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ukraine', 'middle_east', 'west_europe', 'korea']
+      - name: aircraft_count
+        description: "공중 항공기 수(on_ground=false). 음수 불가."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: area_sqdeg
+        description: "영역 면적(seed에서 조인). 양수여야 밀도 분모로 유효."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+      - name: density
+        description: "면적 정규화 밀도 = aircraft_count / area_sqdeg. ★ 핵심 지표. 음수 불가."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0

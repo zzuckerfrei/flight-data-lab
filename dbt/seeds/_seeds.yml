@@ -1,0 +1,23 @@
+version: 2
+
+# seed = dbt가 CSV를 BigQuery 테이블로 올려주는 소량 참조 데이터.
+# (CSV 파일엔 주석 문법이 없어서, 설명은 이 _seeds.yml에 단다.)
+seeds:
+  - name: region_area
+    description: >
+      수집 영역별 bbox 면적(sq°) 참조 테이블.
+      무엇: region(지역명) → area_sqdeg(면적) 매핑.
+      왜:   밀도 = 항공기수 / 면적 으로 정규화할 때 각 영역의 면적이 필요하다.
+            면적이 다른 영역(우크라 162 vs 한국 48)을 공정 비교하려면 정규화가 필수.
+            이 값은 실데이터가 아니라 우리가 정한 수집 영역의 상수(docs/collection-regions.md)라
+            source(적재)가 아니라 seed(코드로 관리하는 참조값)로 둔다. 지역 추가/변경 시 CSV만 수정.
+    columns:
+      - name: region
+        description: "수집 영역명(ukraine/middle_east/west_europe/korea). staging의 region과 조인 키."
+        data_tests:
+          - not_null
+          - unique
+      - name: area_sqdeg
+        description: "bbox 면적(sq°) = (lamax-lamin)*(lomax-lomin). 밀도 정규화의 분모."
+        data_tests:
+          - not_null

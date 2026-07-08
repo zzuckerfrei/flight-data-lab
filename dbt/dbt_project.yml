@@ -31,3 +31,8 @@ models:
     marts:
       +materialized: table
       +schema: marts
+
+# seed(참조 CSV)도 레이어 분리 → seeds 데이터셋(dev면 dev_seeds).
+seeds:
+  flight_data:
+    +schema: seeds
