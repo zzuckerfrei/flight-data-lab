@@ -3,7 +3,8 @@
 #
 # target 분리(현업 표준):
 #  - dev  = OAuth(gcloud ADC). 로컬 개발. SA 키 파일을 로컬에 두지 않음(키 유출 방지).
-#  - prod = service-account. 나중에 Airflow에서 dbt 실행 시(#27) 추가.
+#  - prod = service-account. Airflow(Cosmos K8s Pod)에서 dbt 실행용(#27).
+#           dev와 같은 BigQuery(flight-data-lab-501011)에 붙되 인증만 SA 키.
 flight_data:
   target: dev
   outputs:
@@ -12,6 +13,17 @@ flight_data:
       method: oauth              # gcloud application-default credentials 사용
       project: flight-data-lab-501011
       dataset: flight_data       # 기본 스키마(source가 참조하는 bronze 위치). staging/marts는 +schema로 분리
+      location: asia-northeast3
+      threads: 4
+      priority: interactive
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+    prod:
+      type: bigquery
+      method: service-account    # SA 키 파일 인증(자동화용). OAuth와 달리 브라우저 로그인 불필요.
+      keyfile: /root/.dbt/gcp-sa-key.json   # dbt Pod에 k8s Secret으로 마운트될 경로(이미지에 굽지 않음)
+      project: flight-data-lab-501011
+      dataset: flight_data
       location: asia-northeast3
       threads: 4
       priority: interactive
