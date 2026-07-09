@@ -2,6 +2,21 @@
 # 기본 values 위에 "덮어쓸 것만" 정의한다. 적지 않은 키는 chart 기본값이 그대로 적용된다.
 # 배포: helm install flight-airflow apache-airflow/airflow --version 1.22.0 -n airflow -f helm-values-airflow.yaml
 
+# 커스텀 Airflow 이미지: base(apache/airflow:3.2.2)에 cosmos + keycloak provider를 구운 것(docker/airflow/Dockerfile).
+# _PIP_ADDITIONAL_REQUIREMENTS(프로덕션 금지) 대신 이미지로 provider 공급 = 표준. kind load로 노드에 주입하므로 로컬 태그.
+# pullPolicy IfNotPresent: 노드에 이미 있으면(=kind load) 원격 pull 안 함(레지스트리 없음).
+images:
+  airflow:
+    repository: flight-airflow
+    tag: "3.2.2"
+    pullPolicy: IfNotPresent
+
+# Keycloak이 유저를 관리하므로 Airflow 기본 admin 생성 job 비활성화.
+# KeycloakAuthManager(AirflowSecurityManagerV2)는 FAB users_create의 find_role 미지원 → 이 job은 CrashLoop.
+# 우리 인증은 전적으로 Keycloak SSO라 Airflow 로컬 유저 불필요.
+createUserJob:
+  enabled: false
+
 # Task별 Pod 격리 실행 전략. (기본값은 CeleryExecutor)
 executor: "KubernetesExecutor"
 
@@ -51,10 +66,8 @@ extraEnv: |
   # GCP: Google 라이브러리가 이 경로의 SA 키 파일을 자동 인증에 사용 (표준 환경변수)
   - name: GOOGLE_APPLICATION_CREDENTIALS
     value: /opt/airflow/secrets/gcp/key.json
-  # Keycloak SSO (auth manager). dev: 파드 시작 시 provider 설치(_PIP_ADDITIONAL_REQUIREMENTS).
+  # Keycloak SSO (auth manager). provider는 커스텀 이미지에 내장(위 images 참조) — _PIP 제거함.
   # server_url은 브라우저·파드 공통 접근 URL(host.docker.internal:8081)로 통일 → OIDC issuer 일관.
-  - name: _PIP_ADDITIONAL_REQUIREMENTS
-    value: "apache-airflow-providers-keycloak"
   - name: AIRFLOW__CORE__AUTH_MANAGER
     value: "airflow.providers.keycloak.auth_manager.keycloak_auth_manager.KeycloakAuthManager"
   - name: AIRFLOW__KEYCLOAK_AUTH_MANAGER__CLIENT_ID
