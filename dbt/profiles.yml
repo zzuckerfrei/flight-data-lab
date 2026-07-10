@@ -23,7 +23,7 @@ flight_data:
     k8s_dev:                     # Pod 검증용: SA키 인증 + dev처럼 격리(→ k8s_dev_staging/k8s_dev_marts)
       type: bigquery
       method: service-account
-      keyfile: /root/gcp/gcp-sa-key.json   # Secret 마운트 경로(/root/.dbt와 분리 — profiles.yml 가림 방지)
+      keyfile: /root/gcp/key.json   # Secret 마운트 경로(/root/.dbt와 분리 — profiles.yml 가림 방지)
       project: flight-data-lab-501011
       dataset: flight_data
       location: asia-northeast3
@@ -34,7 +34,7 @@ flight_data:
     prod:
       type: bigquery
       method: service-account    # SA 키 파일 인증(자동화용). OAuth와 달리 브라우저 로그인 불필요.
-      keyfile: /root/gcp/gcp-sa-key.json   # Secret 마운트 경로(/root/.dbt와 분리 — profiles.yml 가림 방지)
+      keyfile: /root/gcp/key.json   # Secret 마운트 경로(/root/.dbt와 분리 — profiles.yml 가림 방지)
       project: flight-data-lab-501011
       dataset: flight_data
       location: asia-northeast3

@@ -69,7 +69,9 @@ operator_args = {
             deploy_type="volume",         # SA키는 파일이라 volume(env 아님)
             deploy_target="/root/gcp",    # ★ /root/.dbt와 분리: 같은 곳에 마운트하면 볼륨이 profiles.yml을 가림
             secret="gcp-sa-key",          # 기존 k8s Secret 이름(airflow ns)
-            key="gcp-sa-key.json",        # Secret 안의 키 → /root/gcp/gcp-sa-key.json 생성
+            key="key.json",               # ★ volume 마운트에선 key= 무시되고 Secret의 실제 키 이름으로
+                                          #   파일 생성됨 → 이 Secret 키가 'key.json'이라 /root/gcp/key.json.
+                                          #   그래서 profiles.yml keyfile도 /root/gcp/key.json으로 맞춤.
         ),
     ],
 }
