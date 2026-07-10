@@ -2,9 +2,11 @@
 # 프로젝트 로컬에 두고 --profiles-dir로 가리켜 repo 하나로 자족적(self-contained). 학습/포트폴리오 유리.
 #
 # target 분리(현업 표준):
-#  - dev  = OAuth(gcloud ADC). 로컬 개발. SA 키 파일을 로컬에 두지 않음(키 유출 방지).
-#  - prod = service-account. Airflow(Cosmos K8s Pod)에서 dbt 실행용(#27).
-#           dev와 같은 BigQuery(flight-data-lab-501011)에 붙되 인증만 SA 키.
+#  - dev     = OAuth(gcloud ADC). 로컬 개발 전용. Pod엔 ADC가 없어 못 씀. dev_* 데이터셋.
+#  - k8s_dev = service-account. Cosmos K8s Pod에서 '검증용'으로 실행. k8s_dev_* 데이터셋(prod 안 밟음).
+#  - prod    = service-account. Cosmos K8s Pod에서 '운영' 실행(#27). staging/marts 데이터셋.
+#  ★ keyfile은 /root/gcp/(profiles.yml이 있는 /root/.dbt/와 분리). 같은 디렉토리에 Secret 볼륨을
+#    마운트하면 K8s가 그 디렉토리를 덮어써 profiles.yml이 사라짐(subPath 없는 볼륨 마운트). 그래서 분리.
 flight_data:
   target: dev
   outputs:
@@ -18,10 +20,21 @@ flight_data:
       priority: interactive
       job_execution_timeout_seconds: 300
       job_retries: 1
+    k8s_dev:                     # Pod 검증용: SA키 인증 + dev처럼 격리(→ k8s_dev_staging/k8s_dev_marts)
+      type: bigquery
+      method: service-account
+      keyfile: /root/gcp/gcp-sa-key.json   # Secret 마운트 경로(/root/.dbt와 분리 — profiles.yml 가림 방지)
+      project: flight-data-lab-501011
+      dataset: flight_data
+      location: asia-northeast3
+      threads: 4
+      priority: interactive
+      job_execution_timeout_seconds: 300
+      job_retries: 1
     prod:
       type: bigquery
       method: service-account    # SA 키 파일 인증(자동화용). OAuth와 달리 브라우저 로그인 불필요.
-      keyfile: /root/.dbt/gcp-sa-key.json   # dbt Pod에 k8s Secret으로 마운트될 경로(이미지에 굽지 않음)
+      keyfile: /root/gcp/gcp-sa-key.json   # Secret 마운트 경로(/root/.dbt와 분리 — profiles.yml 가림 방지)
       project: flight-data-lab-501011
       dataset: flight_data
       location: asia-northeast3
