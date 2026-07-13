@@ -22,8 +22,10 @@ REGIONS = ["ukraine", "middle_east", "west_europe", "korea"]
 
 
 def load_gcs_to_bq(**context):
-    # 적재 대상 날짜: 트리거 conf.dt 우선, 없으면 오늘(UTC)
-    dt = (context["dag_run"].conf or {}).get("dt") or pendulum.now("UTC").format("YYYYMMDD")
+    # 적재 대상 날짜: 트리거 conf.dt 우선, 없으면 이 run의 logical_date(Airflow가 run마다 자동 부여).
+    #  - now()가 아니라 logical_date라서 backfill 시 각 run이 '자기 날짜' GCS→그 날짜 bronze 파티션에 적재.
+    #  - conf.dt는 수동 단건 재적재용 override로 유지.
+    dt = (context["dag_run"].conf or {}).get("dt") or context["logical_date"].format("YYYYMMDD")
 
     gcs = storage.Client()  # SA키(ADC)로 인증 — opensky_to_gcs와 동일
     rows = []
@@ -69,9 +71,11 @@ def load_gcs_to_bq(**context):
 
 with DAG(
     dag_id="opensky_gcs_to_bq",
-    schedule=None,  # 수동 트리거 (MVP). 스케줄·의존성은 #28
+    # @daily: bronze 파티션이 날짜(dt) 단위라 1 run = 1 파티션으로 정합. #28 자동화.
+    #  - 당일 지연 있음(7/13 담당 run은 7/14 00:00 실행)—배치 분석이라 무해.
+    schedule="@daily",
     start_date=pendulum.datetime(2026, 7, 6, tz="UTC"),
-    catchup=False,
+    catchup=True,  # 과거 구간 소급 실행 허용 → backfill로 적재 갭(7/7~) 메꿈
     tags=["opensky", "bronze", "bigquery"],
 ) as dag:
     load_task = PythonOperator(
