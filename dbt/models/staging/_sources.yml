@@ -13,6 +13,15 @@ sources:
     tables:
       - name: opensky_states_bronze
         description: "1행 = 1스냅샷(region+snapshot_time). raw(JSON)에 항공기 배열 통짜 보존."
+        # 최신성 방어선(다층 방어 中 1층): 적재 파이프라인이 살아있는지 = _loaded_at(적재 시각) 기준.
+        #  - loaded_at_field=_loaded_at: dbt freshness의 표준 용법(로드 최신성=파이프라인 헬스).
+        #    snapshot_time(데이터 시각)이 아님 — backfill 정상 소급을 오탐하므로. 데이터 지연/완결성은 별도 층.
+        #  - 임계: 적재가 @daily+당일지연이라 정상이어도 _loaded_at이 하루+ 전일 수 있음 → 넉넉히.
+        #    warn 36h(1.5일=하루지연+여유) / error 48h(이틀 안 들어오면 확실히 이상 → dbt run 중단).
+        loaded_at_field: _loaded_at
+        freshness:
+          warn_after:  {count: 36, period: hour}
+          error_after: {count: 48, period: hour}
         columns:
           - name: snapshot_time
             description: "스냅샷 시각(OpenSky time epoch → TIMESTAMP). 파티션 컬럼."
@@ -22,4 +31,3 @@ sources:
             description: "OpenSky /states/all 응답 원본(JSON). states=항공기 17필드 배열의 배열."
           - name: _loaded_at
             description: "BQ 적재 시각(관측성·freshness 기준)."
-    # freshness(최신성 체크)는 적재 자동화(#28) 후 추가 — 지금은 수동 적재라 상시 stale 경고.
