@@ -22,10 +22,13 @@ REGIONS = ["ukraine", "middle_east", "west_europe", "korea"]
 
 
 def load_gcs_to_bq(**context):
-    # 적재 대상 날짜: 트리거 conf.dt 우선, 없으면 이 run의 logical_date(Airflow가 run마다 자동 부여).
-    #  - now()가 아니라 logical_date라서 backfill 시 각 run이 '자기 날짜' GCS→그 날짜 bronze 파티션에 적재.
+    # 적재 대상 날짜: 트리거 conf.dt 우선, 없으면 logical_date의 '전날'(하루 당기기).
+    #  - 왜 전날? GCS dt 폴더 경계(UTC 자정)와 @daily 실행 시점(UTC 자정)이 겹쳐,
+    #    logical_date(=오늘) 그대로 쓰면 '방금 열린 당일 폴더'를 읽어 텅 빔(당일 파티션 공백).
+    #    → 오늘 00:00 UTC run이 '다 찬 어제' 파티션을 적재하게 하루 뺀다(당일 지연 정석).
+    #    상세: private/incidents/2026-07-14-daily-partition-utc-boundary-gap.md
     #  - conf.dt는 수동 단건 재적재용 override로 유지.
-    dt = (context["dag_run"].conf or {}).get("dt") or context["logical_date"].format("YYYYMMDD")
+    dt = (context["dag_run"].conf or {}).get("dt") or context["logical_date"].subtract(days=1).format("YYYYMMDD")
 
     gcs = storage.Client()  # SA키(ADC)로 인증 — opensky_to_gcs와 동일
     rows = []
@@ -70,7 +73,7 @@ def load_gcs_to_bq(**context):
 
 
 with DAG(
-    dag_id="opensky_gcs_to_bq",
+    dag_id="gcs_to_bq",
     # @daily: bronze 파티션이 날짜(dt) 단위라 1 run = 1 파티션으로 정합. #28 자동화.
     #  - 당일 지연 있음(7/13 담당 run은 7/14 00:00 실행)—배치 분석이라 무해.
     schedule="@daily",
