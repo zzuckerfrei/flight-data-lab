@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cosmos import DbtDag, ProjectConfig, ProfileConfig, ExecutionConfig, RenderConfig
-from cosmos.constants import ExecutionMode, LoadMode
+from cosmos.constants import ExecutionMode, LoadMode, SourceRenderingBehavior
 from airflow.providers.cncf.kubernetes.secret import Secret
 
 # ── 부품1: ProjectConfig — 지도 위치 + 프로젝트명 (파싱은 Airflow가 하므로 Airflow 경로) ──
@@ -50,8 +50,13 @@ execution_config = ExecutionConfig(
 
 # ── 부품4: RenderConfig — 어떻게 파싱 (DBT_MANIFEST = 지도만 읽음) ──
 # Astronomer 공식이 K8s 실행에 권장하는 조합: manifest로 파싱하면 Airflow에 dbt 불필요 + 가장 빠름.
+# source_rendering_behavior=with_tests_or_freshness (Cosmos 1.6+): source 노드 중
+#   freshness나 test가 달린 것을 Airflow task로 렌더 → 다층 방어 게이트를 dbt run '앞단'에 배치.
+#   dbt 의존성상 source가 최상류라, source freshness/test가 자동으로 staging·marts보다 앞에 온다.
+#   (freshness=최신성 게이트 / bronze 완결성 singular test=완결성 게이트 → 통과해야 dbt run 진행)
 render_config = RenderConfig(
     load_method=LoadMode.DBT_MANIFEST,
+    source_rendering_behavior=SourceRenderingBehavior.WITH_TESTS_OR_FRESHNESS,
 )
 
 # ── operator_args: 각 dbt 모델을 실행할 KubernetesPodOperator Pod 공통 스펙 ──
@@ -77,8 +82,11 @@ operator_args = {
 }
 
 # ── 조립: DbtDag(4부품 + operator_args) ──
-# schedule=None: 우선 수동 트리거로 dbt Pod 실행을 검증한다.
-#   수집→적재→dbt 자동 연결(의존성)은 #28에서 별도로.
+# schedule="0 1 * * *": 하루 1회, UTC 01:00(=KST 10:00). 적재(gcs_to_bq)가 UTC 00:00에 도니 그 1시간 뒤.
+#   왜 하루 1회 시간 오프셋인가 → ADR-0001(private/adr): 적재가 @daily 규칙적 + freshness 게이트가
+#   '적재 실패 시 중단'을 이미 담당하므로 Asset(이벤트) 트리거는 이점 상쇄 → 단순한 시간 오프셋 채택.
+#   full-refresh라 하루 2회는 헛수고(bronze가 하루 1번 갱신되니 변환도 1번이면 충분).
+# catchup=False: 과거 변환 소급 불필요(marts는 최신 bronze 전량 재생성이라 과거 run 의미 없음).
 dbt_transform_dag = DbtDag(
     project_config=project_config,
     profile_config=profile_config,
@@ -86,7 +94,7 @@ dbt_transform_dag = DbtDag(
     render_config=render_config,
     operator_args=operator_args,
     dag_id="dbt_transform",
-    schedule=None,
+    schedule="0 1 * * *",
     start_date=datetime(2026, 7, 10),
     catchup=False,
     tags=["dbt", "cosmos", "marts"],
