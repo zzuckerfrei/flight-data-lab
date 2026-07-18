@@ -16,6 +16,8 @@ from google.cloud import storage
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
+from utils.slack_alerts import notify_failure  # 실패 시 Slack 알림 (#33)
+
 TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
 STATES_URL = "https://opensky-network.org/api/states/all"
 BUCKET = "flight-data-lab-501011-bronze"
@@ -72,6 +74,9 @@ with DAG(
     start_date=pendulum.datetime(2026, 6, 30, tz="UTC"),
     catchup=False,  # 시작일~현재 사이 밀린 실행분 소급 안 함
     tags=["opensky", "bronze"],
+    # on_failure_callback을 default_args로 → 모든 task(매핑된 영역별 포함)에 적용(task-level).
+    #   어느 task 실패인지 알아야 게이트/일반 실패를 구분할 수 있어 DAG-level 아닌 task-level로 둔다.
+    default_args={"on_failure_callback": notify_failure},
 ) as dag:
     # Dynamic Task Mapping: REGIONS 길이만큼 task 자동 생성. 각 dict가 op_kwargs로 전달됨.
     fetch_and_store_task = PythonOperator.partial(

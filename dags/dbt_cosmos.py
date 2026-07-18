@@ -17,6 +17,8 @@ from cosmos import DbtDag, ProjectConfig, ProfileConfig, ExecutionConfig, Render
 from cosmos.constants import ExecutionMode, LoadMode, SourceRenderingBehavior
 from airflow.providers.cncf.kubernetes.secret import Secret
 
+from utils.slack_alerts import notify_failure  # 실패 시 Slack 알림 (#33)
+
 # ── 부품1: ProjectConfig — 지도 위치 + 프로젝트명 (파싱은 Airflow가 하므로 Airflow 경로) ──
 # manifest_path는 절대경로 대신 __file__ 상대경로로 잡는다.
 #   이유: git-sync는 새 커밋마다 .worktrees/<커밋해시>/ 라는 새 폴더에 repo를 풀어서
@@ -98,4 +100,7 @@ dbt_transform_dag = DbtDag(
     start_date=datetime(2026, 7, 10),
     catchup=False,
     tags=["dbt", "cosmos", "marts"],
+    # default_args → Cosmos가 생성하는 모든 dbt task(KubernetesPodOperator)에 상속.
+    #   게이트 task(bronze_opensky_states_bronze.source/.test) 실패 시 게이트 차단 알림으로 구분됨.
+    default_args={"on_failure_callback": notify_failure},
 )

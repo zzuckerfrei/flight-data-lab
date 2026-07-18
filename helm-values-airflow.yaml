@@ -92,6 +92,14 @@ extraEnv: |
     value: "http://host.docker.internal:8081/auth/"   # trailing slash 필수: python-keycloak urljoin이 /auth 유지하도록
   - name: AIRFLOW__API__BASE_URL
     value: "http://localhost:8080"
+  # Slack 실패 알림 (#33): on_failure_callback → SlackWebhookNotifier/Hook이 conn_id=slack_default 참조.
+  #  - Connection을 URI 환경변수로 주입(AIRFLOW_CONN_<CONN_ID 대문자>) = k8s Secret slack-webhook의 uri.
+  #  - URI 형식 slackwebhook://:<token 경로 %2F 인코딩>@/ (webhook URL은 평문 커밋 금지 → Secret에만).
+  - name: AIRFLOW_CONN_SLACK_DEFAULT
+    valueFrom:
+      secretKeyRef:
+        name: slack-webhook
+        key: uri
 
 # GCP SA 키(JSON)를 파일로 마운트 (k8s Secret gcp-sa-key → /opt/airflow/secrets/gcp/key.json)
 volumes:

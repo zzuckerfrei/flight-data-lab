@@ -16,6 +16,8 @@ from google.cloud import storage, bigquery
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
+from utils.slack_alerts import notify_failure  # 실패 시 Slack 알림 (#33)
+
 BUCKET = "flight-data-lab-501011-bronze"
 TABLE = "flight-data-lab-501011.flight_data.opensky_states_bronze"
 REGIONS = ["ukraine", "middle_east", "west_europe", "korea"]
@@ -80,6 +82,7 @@ with DAG(
     start_date=pendulum.datetime(2026, 7, 6, tz="UTC"),
     catchup=True,  # 과거 구간 소급 실행 허용 → backfill로 적재 갭(7/7~) 메꿈
     tags=["opensky", "bronze", "bigquery"],
+    default_args={"on_failure_callback": notify_failure},  # 실패 시 Slack 알림 (#33)
 ) as dag:
     load_task = PythonOperator(
         task_id="load_gcs_to_bq",
