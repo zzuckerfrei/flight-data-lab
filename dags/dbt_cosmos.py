@@ -35,7 +35,7 @@ project_config = ProjectConfig(
 # SA키 파일 자체는 이미지에 굽지 않고 런타임 Secret으로 주입한다(아래 operator_args).
 profile_config = ProfileConfig(
     profile_name="flight_data",                       # profiles.yml 최상위 키(dbt_project명과 일치)
-    target_name="k8s_dev",                            # 검증용: SA키 인증 + k8s_dev_* 데이터셋(prod 안 밟음). 검증 후 prod로.
+    target_name="prod",                               # 운영: SA키 인증 + staging/marts 데이터셋(접두어 없음). k8s_dev로 전체 검증 완료 후 전환(2026-07-18).
     profiles_yml_filepath="/root/.dbt/profiles.yml",  # ← dbt Pod 안 경로 (Airflow 파드 아님!)
 )
 
