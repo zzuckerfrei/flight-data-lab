@@ -66,6 +66,15 @@ extraEnv: |
   # GCP: Google 라이브러리가 이 경로의 SA 키 파일을 자동 인증에 사용 (표준 환경변수)
   - name: GOOGLE_APPLICATION_CREDENTIALS
     value: /opt/airflow/secrets/gcp/key.json
+  # Remote logging (#43): worker Pod가 삭제돼도 로그를 GCS에 영구 보존 → UI가 GCS에서 읽음.
+  #  - conn_id=google_cloud_default를 별도 정의 안 함 → empty URI = ADC 폴백 = 위 GAC(SA키) 자동 사용.
+  #  - 버킷은 기존 bronze 버킷 하위 경로 재활용(SA에 objectAdmin 이미 있음).
+  - name: AIRFLOW__LOGGING__REMOTE_LOGGING
+    value: "True"
+  - name: AIRFLOW__LOGGING__REMOTE_BASE_LOG_FOLDER
+    value: "gs://flight-data-lab-501011-bronze/airflow-logs"
+  - name: AIRFLOW__LOGGING__REMOTE_LOG_CONN_ID
+    value: "google_cloud_default"
   # Keycloak SSO (auth manager). provider는 커스텀 이미지에 내장(위 images 참조) — _PIP 제거함.
   # server_url은 브라우저·파드 공통 접근 URL(host.docker.internal:8081)로 통일 → OIDC issuer 일관.
   - name: AIRFLOW__CORE__AUTH_MANAGER
