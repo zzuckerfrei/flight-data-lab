@@ -37,3 +37,34 @@ models:
           - not_null
           - dbt_utils.accepted_range:
               min_value: 0
+
+  - name: mart_aircraft_points
+    description: >
+      지도(Kepler.gl)용 항공기 위치 점. 1행 = 1항공기 × 1스냅샷(30분 버킷).
+      stg_states에서 공중(on_ground=false)·좌표 있는 행만 추린 소비 mart.
+      region_density(집계 숫자)와 달리 위경도를 살려 지도 점 구름/공백을 렌더한다.
+    columns:
+      - name: snapshot_bucket
+        description: "30분 버킷 시각(애니메이션 프레임 키). 4영역 정렬용 floor."
+        data_tests:
+          - not_null
+      - name: region
+        description: "수집 영역."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ukraine', 'middle_east', 'west_europe', 'korea']
+      - name: longitude
+        description: "경도. 지도 X. 물리 유효 범위 [-180, 180]."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -180
+              max_value: 180
+      - name: latitude
+        description: "위도. 지도 Y. 물리 유효 범위 [-90, 90]."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -90
+              max_value: 90
