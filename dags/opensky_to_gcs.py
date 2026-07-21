@@ -23,10 +23,12 @@ STATES_URL = "https://opensky-network.org/api/states/all"
 BUCKET = "flight-data-lab-501011-bronze"
 
 # 수집 영역 4곳 (docs/collection-regions.md). 각 원소가 op_kwargs로 fetch_and_store(region, bbox)에 매핑됨.
-# 분쟁2(우크라·중동) + 비교2(서유럽·한국). 호출당 합계 10크레딧 × 144회/일 = 1,440/일(4000의 36%).
+# 분쟁2(우크라·중동) + 비교2(서유럽·한국). 호출당 합계 11크레딧 × 144회/일 = 1,584/일(4000의 40%).
+# 2026-07-21 확대: 분쟁지역 bbox를 넓혀 "본토 공백 + 주변국 우회"를 한 프레임에(우크라 338sq°/3, 중동 540sq°/4).
+#   ★확대 시점부터 새 영역 → 과거 데이터는 옛 bbox(분석 시 경계 불일치 주의).
 REGIONS = [
-    {"region": "ukraine",     "bbox": {"lamin": 44, "lamax": 53, "lomin": 22,  "lomax": 40}},
-    {"region": "middle_east", "bbox": {"lamin": 25, "lamax": 40, "lomin": 38,  "lomax": 63}},
+    {"region": "ukraine",     "bbox": {"lamin": 42, "lamax": 55, "lomin": 18,  "lomax": 44}},
+    {"region": "middle_east", "bbox": {"lamin": 24, "lamax": 42, "lomin": 36,  "lomax": 66}},
     {"region": "west_europe", "bbox": {"lamin": 45, "lamax": 52, "lomin": 2,   "lomax": 12}},
     {"region": "korea",       "bbox": {"lamin": 33, "lamax": 39, "lomin": 124, "lomax": 132}},
 ]
