@@ -20,7 +20,9 @@ from utils.slack_alerts import notify_failure  # 실패 시 Slack 알림 (#33)
 
 BUCKET = "flight-data-lab-501011-bronze"
 TABLE = "flight-data-lab-501011.flight_data.opensky_states_bronze"
-REGIONS = ["ukraine", "middle_east", "west_europe", "korea"]
+# 수집이 큰 박스 1개(eurasia)로 바뀜(2026-07-21). GCS 경로 region=eurasia 하나만 순회.
+# 분석용 region(ukraine/middle_east/west_europe/other)은 dbt stg_states에서 위경도로 파생.
+REGIONS = ["eurasia"]
 
 
 def load_gcs_to_bq(**context):

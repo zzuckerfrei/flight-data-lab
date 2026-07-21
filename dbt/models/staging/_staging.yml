@@ -13,11 +13,11 @@ models:
         data_tests:
           - not_null
       - name: region
-        description: "수집 영역. bronze에서 복제."
+        description: "분석 영역. 위경도로 파생(관심 3영역 bbox 안이면 해당 region, 아니면 other)."
         data_tests:
           - not_null
           - accepted_values:
-              values: ['ukraine', 'middle_east', 'west_europe', 'korea']
+              values: ['ukraine', 'middle_east', 'west_europe', 'other']
       - name: _loaded_at
         description: "BQ 적재 시각. bronze에서 복제(관측성·freshness 기준)."
 

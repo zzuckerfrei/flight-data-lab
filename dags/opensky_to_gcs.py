@@ -22,15 +22,14 @@ TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protoc
 STATES_URL = "https://opensky-network.org/api/states/all"
 BUCKET = "flight-data-lab-501011-bronze"
 
-# 수집 영역 4곳 (docs/collection-regions.md). 각 원소가 op_kwargs로 fetch_and_store(region, bbox)에 매핑됨.
-# 분쟁2(우크라·중동) + 비교2(서유럽·한국). 호출당 합계 11크레딧 × 144회/일 = 1,584/일(4000의 40%).
-# 2026-07-21 확대: 분쟁지역 bbox를 넓혀 "본토 공백 + 주변국 우회"를 한 프레임에(우크라 338sq°/3, 중동 540sq°/4).
-#   ★확대 시점부터 새 영역 → 과거 데이터는 옛 bbox(분석 시 경계 불일치 주의).
+# 수집 영역: 유럽~중동~북아프리카를 아우르는 큰 직사각형 1개 (docs/collection-regions.md).
+# 2026-07-21 재설계: 4분할 → 큰 박스 1개로.
+#   근거: OpenSky 크레딧은 400sq° 초과 시 4가 상한(실측 검증). 3,360sq°든 좁은 영역이든 4크레딧 동일
+#         → 넓게 잡아 "정상 지역 붐빔 vs 우크라·이란 공백"을 연속으로 담는 게 이득(4크레딧 × 144 = 576/일 = 14.4%).
+#   region 태그는 수집이 아니라 dbt stg_states에서 위경도로 파생(ukraine/middle_east/west_europe/other).
+#   한국은 큰 박스에서 멀어 제외(서유럽이 비교군 역할).
 REGIONS = [
-    {"region": "ukraine",     "bbox": {"lamin": 42, "lamax": 55, "lomin": 18,  "lomax": 44}},
-    {"region": "middle_east", "bbox": {"lamin": 24, "lamax": 42, "lomin": 36,  "lomax": 66}},
-    {"region": "west_europe", "bbox": {"lamin": 45, "lamax": 52, "lomin": 2,   "lomax": 12}},
-    {"region": "korea",       "bbox": {"lamin": 33, "lamax": 39, "lomin": 124, "lomax": 132}},
+    {"region": "eurasia", "bbox": {"lamin": 18, "lamax": 60, "lomin": -10, "lomax": 70}},
 ]
 
 
