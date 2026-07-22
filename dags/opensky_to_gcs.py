@@ -77,7 +77,13 @@ with DAG(
     tags=["opensky", "bronze"],
     # on_failure_callback을 default_args로 → 모든 task(매핑된 영역별 포함)에 적용(task-level).
     #   어느 task 실패인지 알아야 게이트/일반 실패를 구분할 수 있어 DAG-level 아닌 task-level로 둔다.
-    default_args={"on_failure_callback": notify_failure},
+    # retry(#44): 일시 장애(OpenSky 503·네트워크) 자동 흡수 + 알림 노이즈 감소.
+    #   수집은 retry-safe(실패=업로드 전이라 파일 0개, GCS atomic → 중복 없음). 2026-07-22 503 장애 대응.
+    default_args={
+        "on_failure_callback": notify_failure,
+        "retries": 2,
+        "retry_delay": pendulum.duration(minutes=3),
+    },
 ) as dag:
     # Dynamic Task Mapping: REGIONS 길이만큼 task 자동 생성. 각 dict가 op_kwargs로 전달됨.
     fetch_and_store_task = PythonOperator.partial(

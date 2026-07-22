@@ -84,7 +84,12 @@ with DAG(
     start_date=pendulum.datetime(2026, 7, 6, tz="UTC"),
     catchup=True,  # 과거 구간 소급 실행 허용 → backfill로 적재 갭(7/7~) 메꿈
     tags=["opensky", "bronze", "bigquery"],
-    default_args={"on_failure_callback": notify_failure},  # 실패 시 Slack 알림 (#33)
+    # 실패 시 Slack 알림(#33) + retry(#44): BQ/GCS 일시 오류 자동 흡수. 멱등(WRITE_TRUNCATE)이라 재시도 안전.
+    default_args={
+        "on_failure_callback": notify_failure,
+        "retries": 2,
+        "retry_delay": pendulum.duration(minutes=5),
+    },
 ) as dag:
     load_task = PythonOperator(
         task_id="load_gcs_to_bq",
