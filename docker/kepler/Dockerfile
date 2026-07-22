@@ -7,7 +7,19 @@
 # kind 주입: kind load docker-image kepler-map:1.0.0 --name flight-data
 FROM python:3.12-slim
 
-# 의존성 버전 고정(재현성). setuptools<81 = keplergl 0.3.7이 쓰는 pkg_resources 제거 문제 대비(2026-07-21 실측).
+# ★ keplergl 0.3.7 의존성(geopandas→fiona)이 GDAL 시스템 라이브러리로 컴파일된다.
+#   python:3.12-slim엔 GDAL·빌드도구가 없어 'gdal-config not found'로 실패 → 아래를 설치.
+#   (2026-07-22 실측: 이 패키지 없으면 pip install keplergl이 wheel 빌드 단계에서 exit 1)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc g++ \
+        libgdal-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# fiona/GDAL 헤더 경로 (libgdal-dev가 /usr/include/gdal에 헤더 설치).
+ENV CPLUS_INCLUDE_PATH=/usr/include/gdal
+ENV C_INCLUDE_PATH=/usr/include/gdal
+
+# 의존성 버전 고정(재현성). setuptools<81 = keplergl 0.3.7의 pkg_resources 제거 문제 대비.
 # db-dtypes/pyarrow = bigquery.Client.query().to_dataframe()에 필요.
 RUN pip install --no-cache-dir \
     "keplergl==0.3.7" \
