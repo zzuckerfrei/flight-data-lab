@@ -22,14 +22,14 @@ TOKEN_URL = "https://auth.opensky-network.org/auth/realms/opensky-network/protoc
 STATES_URL = "https://opensky-network.org/api/states/all"
 BUCKET = "flight-data-lab-501011-bronze"
 
-# 수집 영역: 유럽~중동~북아프리카를 아우르는 큰 직사각형 1개 (docs/collection-regions.md).
-# 2026-07-21 재설계: 4분할 → 큰 박스 1개로.
-#   근거: OpenSky 크레딧은 400sq° 초과 시 4가 상한(실측 검증). 3,360sq°든 좁은 영역이든 4크레딧 동일
-#         → 넓게 잡아 "정상 지역 붐빔 vs 우크라·이란 공백"을 연속으로 담는 게 이득(4크레딧 × 144 = 576/일 = 14.4%).
-#   region 태그는 수집이 아니라 dbt stg_states에서 위경도로 파생(ukraine/middle_east/west_europe/other).
-#   한국은 큰 박스에서 멀어 제외(서유럽이 비교군 역할).
+# 수집 영역: 전세계 (docs/collection-regions.md).
+# 2026-07-22 재설계: 큰 박스(유럽~중동) → 전세계 raw 수집.
+#   근거: OpenSky 크레딧은 400sq° 초과 시 4가 상한(실측). 전세계(global)도, 큰 박스(3,360sq°)도 똑같이 4크레딧
+#         → 크레딧 비용 동일한데 raw를 전세계로 쌓아두면 나중에 다른 주제(대서양·북극 항로 등)도 재수집 없이 분석 가능.
+#   ★ "수집은 넓게(전세계 raw 자산), 분석은 좁게(dbt stg에서 관심 지역 필터)": bronze는 원본 창고, 가공은 목적별.
+#   region 태그는 수집이 아니라 dbt stg_states에서 위경도로 파생(관심 유럽~중동만 처리, 나머지 전세계는 stg에서 제외).
 REGIONS = [
-    {"region": "eurasia", "bbox": {"lamin": 18, "lamax": 60, "lomin": -10, "lomax": 70}},
+    {"region": "global", "bbox": {"lamin": -90, "lamax": 90, "lomin": -180, "lomax": 180}},
 ]
 
 

@@ -3,9 +3,11 @@
 --   → BigQuery UNNEST(JSON_QUERY_ARRAY)로 펼치고, JSON_VALUE(aircraft, '$[i]')로 index별 추출 + 캐스팅.
 -- 원칙(1:1 정제): 원본 17필드를 전부 살리고 타입·이름만 정리. 필드 취사선택은 marts에서.
 --
--- ★ region은 수집이 아니라 여기서 위경도로 파생(2026-07-21 재설계).
---   수집은 큰 박스 1개(eurasia)라 bronze.region은 'eurasia' 하나뿐 → 분석용 region을 좌표로 태깅.
---   각 관심 영역 bbox(docs/collection-regions.md) 안에 들면 그 region, 아니면 'other'(주변 배경).
+-- ★ 수집은 전세계(global) raw지만, staging에서 관심 지역(유럽~중동)만 처리(2026-07-22 재설계).
+--   "수집은 넓게(bronze 전세계 자산), 분석은 좁게(여기서 관심 큰박스로 필터)".
+--   1) 전세계 raw UNNEST → 2) 관심 큰박스(lon -10~70, lat 18~60)만 남김 → 3) 위경도로 region 파생.
+--   각 관심 영역 bbox(docs/collection-regions.md) 안에 들면 그 region, 아니면 'other'(관심 큰박스 안 주변 배경).
+--   ★ 나중에 다른 주제(태평양·북극 등)는 이 WHERE 범위만 바꾸면 raw에서 재분석(재수집 불필요).
 
 with source as (
     select snapshot_time, raw, _loaded_at    -- bronze.region('eurasia')은 안 씀(아래서 좌표로 파생)
@@ -77,3 +79,7 @@ select
     spi,
     position_source
 from typed
+-- 전세계 raw 중 관심 지역(유럽~중동 큰박스)만 처리. 나머지 전세계는 bronze에 자산으로 남고 여기서 제외.
+--   (NULL 좌표는 between이 자동 제외 → 지역 판정 불가 행 걸러짐)
+where longitude between -10 and 70
+  and latitude  between 18 and 60
