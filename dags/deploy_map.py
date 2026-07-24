@@ -45,6 +45,10 @@ with DAG(
             "GOOGLE_APPLICATION_CREDENTIALS": "/root/gcp/key.json",
             "MAP_DAYS": "3",                # 최근 3일 관심지역
         },
-        on_finish_action="keep_pod",        # 검증 기간: 실패 Pod 로그 확인용(안정화 후 delete_pod)
+        # 성공 Pod는 삭제(누적 방지), 실패 Pod만 보존(부검용).
+        # 애플리케이션 로그는 #43 GCS remote logging에 남으므로 성공 Pod를 남길 이유가 없다.
+        # 단 Pod가 아예 못 뜨는 실패(이미지 pull 실패·OOMKilled·스케줄 불가)는 stdout이 없어
+        # GCS 로그에도 안 남는다 → 그 경우만 kubectl describe가 필요하므로 실패 Pod는 남긴다.
+        on_finish_action="delete_succeeded_pod",
         get_logs=True,
     )
