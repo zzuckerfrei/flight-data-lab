@@ -70,7 +70,11 @@ operator_args = {
     "image": "dbt-flight:1.0.0",
     "image_pull_policy": "IfNotPresent",  # kind load한 로컬 이미지 → 원격 pull 금지(ImagePullBackOff 방지)
     "namespace": "airflow",               # gcp-sa-key Secret이 있는 ns(=dbt Pod도 여기 떠야 접근)
-    "on_finish_action": "keep_pod",       # 검증 기간: 실패 Pod 남겨 로그/원인 확인(안정화 후 delete_pod로)
+    # 성공 Pod는 삭제(dbt task 10개 × 매일 = 누적), 실패 Pod만 부검용 보존.
+    # 애플리케이션 로그는 #43 GCS remote logging에 남으므로 성공 Pod를 남길 이유가 없다.
+    # 단 Pod가 못 뜨는 실패(이미지 pull·OOMKilled·스케줄 불가)는 stdout이 없어 GCS에도 안 남음
+    # → 그 경우만 kubectl describe가 필요하므로 delete_pod 대신 실패 Pod는 남긴다.
+    "on_finish_action": "delete_succeeded_pod",
     "secrets": [
         Secret(
             deploy_type="volume",         # SA키는 파일이라 volume(env 아님)
