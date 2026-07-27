@@ -1,0 +1,20 @@
+# 층 B: 품질 exporter를 Prometheus scrape 대상으로 등록.
+# operator가 이 CRD를 Prometheus 설정에 자동 반영(선언적/GitOps).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: quality-exporter
+  namespace: airflow
+  labels:
+    app: quality-exporter
+spec:
+  selector:
+    matchLabels:
+      app: quality-exporter
+  namespaceSelector:
+    matchNames:
+      - airflow
+  endpoints:
+    - port: metrics          # Service의 포트 이름(8000)
+      path: /metrics
+      interval: 60s          # scrape 1분(BQ 조회 5분과 분리 — 게이지만 읽어 비용 무관)

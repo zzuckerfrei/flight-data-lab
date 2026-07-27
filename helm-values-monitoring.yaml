@@ -1,0 +1,77 @@
+# kube-prometheus-stack 경량 values (데이터 품질 옵저버빌리티, #50)
+# 목적 = 데이터 품질 관측. 클러스터 인프라 모니터링(node/k8s 컴포넌트)은 이번 스코프 밖 → 끔.
+# 남기는 것: Prometheus + Grafana + Alertmanager + operator.
+# 근거: ADR-0002. 8GB kind라 리소스 제한.
+
+# ── 끄는 것: 클러스터 인프라 메트릭 (이번 목적 아님, 메모리 절약) ──
+nodeExporter:
+  enabled: false
+kubeStateMetrics:
+  enabled: false
+kubeApiServer:
+  enabled: false
+kubelet:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+coreDns:
+  enabled: false
+kubeDns:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+# ── prometheus-operator ──
+prometheusOperator:
+  enabled: true
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {memory: 256Mi}
+
+# ── Prometheus 본체 ──
+prometheus:
+  prometheusSpec:
+    # ★ 우리가 만들 ServiceMonitor/PrometheusRule을 릴리스 라벨 없이도 잡도록 개방.
+    #   기본(true)이면 이 helm 릴리스가 만든 것만 scrape → 우리 커스텀 리소스 누락됨.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    # cross-namespace scrape: airflow ns의 statsd·품질 exporter를 잡아야 함.
+    serviceMonitorNamespaceSelector: {}
+    podMonitorNamespaceSelector: {}
+    ruleNamespaceSelector: {}
+    retention: 7d
+    # 배포 검증 단계: emptyDir(재시작 시 데이터 소멸). 정식화 시 PVC(storageSpec)로 전환.
+    resources:
+      requests: {cpu: 200m, memory: 400Mi}
+      limits: {memory: 1Gi}
+
+# ── Alertmanager ──
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    # 기본값 OnNamespace는 AlertmanagerConfig route에 namespace="<config ns>" 매처를 자동 주입한다.
+    # 우리 품질 알림은 소스가 airflow ns(exporter) 또는 namespace 라벨이 없어서 그 매처와 안 맞음
+    # → null receiver로 빠져 Slack 미전송. None으로 꺼서 우리 route가 모든 알림에 매칭되게 한다.
+    alertmanagerConfigMatcherStrategy:
+      type: None
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {memory: 128Mi}
+
+# ── Grafana ──
+grafana:
+  enabled: true
+  # 배포 검증용 임시 비번. 정식화 시 Secret 참조로 전환(★ public 커밋 전 반드시 교체).
+  adminPassword: admin
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {memory: 256Mi}
+  service:
+    type: ClusterIP   # 접속은 port-forward(Keycloak과 동일 방식)

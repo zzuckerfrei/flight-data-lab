@@ -1,0 +1,32 @@
+# Alertmanager Slack 라우팅 + 알림 억제 (#50 5단계, #48 실현).
+# operator가 이 CRD를 Alertmanager config에 병합(alertmanagerConfigSelector={} → 전부 병합).
+# webhook은 slack-webhook Secret(key=uri) 참조 → 평문 노출 없음.
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: quality-slack
+  namespace: monitoring
+  labels:
+    app: quality-exporter
+spec:
+  route:
+    receiver: slack-quality
+    # 우리 품질 알림만 매칭(team 라벨) → Watchdog 등 기본 알림 노이즈 제외.
+    matchers:
+      - name: team
+        value: flight-data
+    # #48 억제 = 소음 제어(현업 Alertmanager 표준):
+    groupBy: ["alertname"]      # 같은 알림은 하나로 묶음(dedup/group)
+    groupWait: 30s              # 첫 발화 후 30s 모아서 한 번에
+    groupInterval: 5m           # 그룹에 새 알림 추가 시 5m 간격
+    repeatInterval: 4h          # ★같은 알림 반복은 4시간마다만(장기 장애 시 폭탄 방지)
+  receivers:
+    - name: slack-quality
+      slackConfigs:
+        - apiURL:
+            name: slack-webhook-url   # https 원본(Airflow slackwebhook:// URI에서 디코딩). ⚠️public 전 재발급
+            key: uri
+          channel: "#flight-data-alerts"   # incoming webhook이라 실제 채널은 webhook에 고정
+          sendResolved: true               # 복구 시 "해결됨" 알림도
+          title: "{{ .CommonLabels.severity | toUpper }} | {{ .CommonLabels.alertname }}"
+          text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}\n{{ end }}"

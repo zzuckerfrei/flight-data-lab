@@ -1,0 +1,25 @@
+# 층 A(운영 메트릭): Airflow statsd-exporter를 Prometheus scrape 대상으로 등록.
+# statsd-exporter(flight-airflow-statsd:9102)가 이미 Airflow 운영 메트릭을 Prometheus 포맷으로
+# 노출 중 → 이 ServiceMonitor로 operator가 자동으로 Prometheus scrape config에 반영한다.
+# (prometheus.yml 직접 편집이 아니라 CRD 선언 → operator 반영. 선언적/GitOps.)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: airflow-statsd
+  namespace: airflow           # 대상 Service와 같은 ns
+  labels:
+    app: airflow-statsd
+    # kube-prometheus-stack values에서 serviceMonitorSelectorNilUsesHelmValues: false로 열어둬
+    # release 라벨 없이도 Prometheus가 이 ServiceMonitor를 잡는다.
+spec:
+  selector:
+    matchLabels:
+      component: statsd        # flight-airflow-statsd Service의 라벨
+      release: flight-airflow
+  namespaceSelector:
+    matchNames:
+      - airflow
+  endpoints:
+    - port: statsd-scrape      # 9102 (statsd-exporter의 Prometheus 노출 포트)
+      path: /metrics
+      interval: 30s

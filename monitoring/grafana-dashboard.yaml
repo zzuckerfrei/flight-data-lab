@@ -1,0 +1,138 @@
+# 데이터 품질 대시보드 (#50, 4단계) — "대시보드 as code".
+# grafana_dashboard=1 라벨 → Grafana sidecar(grafana-sc-dashboard)가 자동 로드.
+# 패널은 품질 exporter(층 B) 메트릭 + exporter 자체 헬스.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quality-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  flight-data-quality.json: |
+    {
+      "uid": "flight-data-quality",
+      "title": "Flight Data — 데이터 품질",
+      "tags": ["flight-data", "quality"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "1m",
+      "time": { "from": "now-24h", "to": "now" },
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "적재 신선도 (마지막 적재 후 경과)",
+          "description": "bronze _loaded_at 기준. 36h 노랑 / 48h 빨강.",
+          "gridPos": { "h": 5, "w": 8, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "flight_bronze_freshness_seconds", "legendFormat": "freshness" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 129600 },
+                  { "color": "red", "value": 172800 }
+                ]
+              }
+            }
+          },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Exporter 헬스 (BQ 조회)",
+          "description": "1=성공, 0=실패. exporter 자체 관측.",
+          "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "flight_exporter_query_success", "legendFormat": "query" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [
+                { "type": "value", "options": { "1": { "text": "OK", "color": "green" }, "0": { "text": "FAIL", "color": "red" } } }
+              ],
+              "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] }
+            }
+          },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "완결도 (region별 coverage)",
+          "description": "1.0=완결. 0.8 미만 빨강.",
+          "gridPos": { "h": 5, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "flight_coverage_ratio", "legendFormat": "{{region}}" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0, "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.8 },
+                  { "color": "green", "value": 1 }
+                ]
+              }
+            }
+          },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4,
+          "type": "bargauge",
+          "title": "일별 스냅샷 수 (완결성)",
+          "description": "정상 144/일. 115 미만이면 부족(빨강).",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "flight_bronze_snapshots_total", "legendFormat": "{{date}}", "instant": true }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "min": 0, "max": 144,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 115 },
+                  { "color": "green", "value": 144 }
+                ]
+              }
+            }
+          },
+          "options": { "orientation": "horizontal", "displayMode": "gradient", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "region별 항공기 밀도 (추세)",
+          "description": "밀도 = 항공기 수 / 면적. 분쟁지역(우크라·중동)이 서유럽 대비 낮음.",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "targets": [
+            { "refId": "A", "expr": "flight_region_density", "legendFormat": "{{region}}" }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "showPoints": "never" }
+            }
+          },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        }
+      ]
+    }

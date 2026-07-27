@@ -1,0 +1,60 @@
+# 층 B(품질 메트릭): 커스텀 exporter Deployment + Service.
+# airflow ns에 둠 = gcp-sa-key Secret 재활용(monitoring ns에 복제 불필요).
+# BQ 인증: gcp-sa-key Secret을 /root/gcp/key.json 볼륨 마운트(dbt·deploy_map과 동일 패턴).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quality-exporter
+  namespace: airflow
+  labels:
+    app: quality-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quality-exporter
+  template:
+    metadata:
+      labels:
+        app: quality-exporter
+    spec:
+      containers:
+        - name: exporter
+          image: flight-quality-exporter:1.0.0
+          imagePullPolicy: IfNotPresent   # kind load한 로컬 이미지 → 원격 pull 금지
+          ports:
+            - name: metrics
+              containerPort: 8000
+          env:
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /root/gcp/key.json
+            - name: BQ_PROJECT
+              value: flight-data-lab-501011
+            - name: REFRESH_INTERVAL
+              value: "300"               # BQ 조회 주기(초). scrape 주기(60s)와 분리.
+          volumeMounts:
+            - name: gcp-key
+              mountPath: /root/gcp
+              readOnly: true
+          resources:
+            requests: {cpu: 20m, memory: 64Mi}
+            limits: {memory: 128Mi}
+      volumes:
+        - name: gcp-key
+          secret:
+            secretName: gcp-sa-key       # 기존 Secret(키명=key.json) 재활용
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quality-exporter
+  namespace: airflow
+  labels:
+    app: quality-exporter
+spec:
+  selector:
+    app: quality-exporter
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: metrics
