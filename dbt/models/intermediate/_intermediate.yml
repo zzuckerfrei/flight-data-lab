@@ -1,0 +1,41 @@
+version: 2
+
+# intermediate 모델 문서 + 데이터 품질 테스트.
+# 격자 좌표가 staging 필터 범위를 벗어나거나(로직 오류) 셀 대수가 비면(집계 누락) 안 된다.
+models:
+  - name: int_grid_density
+    description: >
+      staging 점을 정사각 격자 셀(기본 0.5°, var grid_cell_deg)로 버킷팅한
+      (날짜 × 셀 × region)별 항공기 수. staging→intermediate→marts의 중간 재사용 층(#25).
+      균일 격자라 셀당 count가 곧 밀도. mart_grid_density가 이를 소비한다.
+    columns:
+      - name: dt
+        description: "날짜(UTC, snapshot_time 기준)."
+        data_tests:
+          - not_null
+      - name: region
+        description: "관심 영역 태그(배경 'other' 포함 — 지도에서 정상 지역 대비용)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ukraine', 'middle_east', 'west_europe', 'other']
+      - name: cell_lon
+        description: "셀 좌측하단 경도. staging 필터 범위 [-10, 70] 안."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -10
+              max_value: 70
+      - name: cell_lat
+        description: "셀 좌측하단 위도. staging 필터 범위 [18, 60] 안."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 18
+              max_value: 60
+      - name: aircraft_count
+        description: "셀당 항공기 수. GROUP BY 집계라 1 이상."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1

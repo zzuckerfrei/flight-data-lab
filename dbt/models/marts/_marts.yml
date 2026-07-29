@@ -68,3 +68,50 @@ models:
           - dbt_utils.accepted_range:
               min_value: -90
               max_value: 90
+
+  - name: mart_grid_density
+    description: >
+      격자 밀도 소비용 gold 테이블(Kepler 히트맵·Grafana 추세가 읽음).
+      int_grid_density(0.5° 격자 셀별 항공기 수) + 날짜별 coverage_pct를 노출.
+      1행 = (날짜 × 셀 × region). region 단위 밀도(mart_region_density)를 격자로 세분화한 뷰.
+    columns:
+      - name: dt
+        description: "날짜(UTC)."
+        data_tests:
+          - not_null
+      - name: region
+        description: "관심 영역 태그(other 포함)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['ukraine', 'middle_east', 'west_europe', 'other']
+      - name: cell_lon
+        description: "셀 좌측하단 경도 [-10, 70]."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -10
+              max_value: 70
+      - name: cell_lat
+        description: "셀 좌측하단 위도 [18, 60]."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 18
+              max_value: 60
+      - name: aircraft_count
+        description: "셀당 항공기 수. 음수·0 불가."
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+      - name: coverage_pct
+        description: >
+          그날 수집 완결도(1.0=144 스냅샷 다 옴). 소비자 신뢰도 메타.
+          ★ 옛 4분할 수집기(7/5~21)는 region마다 snapshot_time이 미세하게 어긋나
+          하루 distinct 스냅샷이 144를 넘어 1.0을 초과(최대 ~2.04) — 알려진 경계 구간 특성.
+          따라서 상한은 검증하지 않고 음수 불가만 확인(mart_region_density와 동일 계산).
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0

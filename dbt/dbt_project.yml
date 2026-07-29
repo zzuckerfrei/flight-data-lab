@@ -28,6 +28,9 @@ models:
     staging:
       +materialized: view
       +schema: staging
+    intermediate:
+      +materialized: view       # 중간 재사용 층(#25). 가볍게 view, marts가 ref로 소비.
+      +schema: intermediate
     marts:
       +materialized: table
       +schema: marts
@@ -36,3 +39,7 @@ models:
 seeds:
   flight_data:
     +schema: seeds
+
+# 프로젝트 변수. 격자 해상도를 코드 수정 없이 조정(0.5 → 0.25면 4배 촘촘). int_grid_density가 참조.
+vars:
+  grid_cell_deg: 0.5
