@@ -68,8 +68,8 @@ alertmanager:
 # ── Grafana ──
 grafana:
   enabled: true
-  # 배포 검증용 임시 비번. 정식화 시 Secret 참조로 전환(★ public 커밋 전 반드시 교체).
-  adminPassword: admin
+  # ★ placeholder. 로컬 배포 시 본인 값으로 교체(정식화 시 k8s Secret 참조 권장).
+  adminPassword: CHANGE_ME
   resources:
     requests: {cpu: 50m, memory: 128Mi}
     limits: {memory: 256Mi}

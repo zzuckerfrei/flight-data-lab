@@ -1,4 +1,4 @@
-# 학습/면접/약점 흔적은 public에 노출하지 않는다 (public엔 production-style 결과물만).
+# 개인 작업 노트·설계 초안·자격증명은 추적하지 않는다 (repo엔 완성 산출물만).
 private/
 
 # 시크릿 — GCP 서비스계정 키, OpenSky 자격증명, 환경변수 (절대 커밋 금지)

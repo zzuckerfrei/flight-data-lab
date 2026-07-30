@@ -18,7 +18,7 @@ extraEnv: |
   - name: KC_BOOTSTRAP_ADMIN_USERNAME
     value: "admin"
   - name: KC_BOOTSTRAP_ADMIN_PASSWORD
-    value: "admin"
+    value: "CHANGE_ME"   # ★ placeholder. 로컬 배포 시 본인 값으로 교체.
 
 # H2 파일 영속: /opt/keycloak/data(H2 저장 경로)를 PVC로 마운트 → 파드 재생성돼도 realm·client·user 유지.
 # StatefulSet volumeClaimTemplates는 파드마다 PVC 자동 생성.
