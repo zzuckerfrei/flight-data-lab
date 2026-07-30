@@ -1,6 +1,6 @@
 # flight-data-lab
 
-**실시간 API 데이터를 분석 가능한 시계열 데이터로 만들어 분석해보기 - 수집 / 적재 / 모델링 E2E 파이프라인**
+**실시간 API 데이터를 분석 가능한 시계열 데이터로 만들어 분석해보기 - 수집 / 적재 / 변환 E2E 파이프라인**
 
 [OpenSky](https://opensky-network.org/)의 실시간 항공 위치를 Airflow로 정기 수집/적재/변환하고, 분쟁지역(우크라이나, 중동)의 영공 회피 패턴을 지도와 시계열로 분석한다.
 
@@ -20,13 +20,19 @@
 
 ---
 
-## Live Demo
+## Demo
 
-[지도에서 결과 확인](https://storage.googleapis.com/flight-data-lab-501011-web/index.html)
+<p align="center">
+  <a href="https://storage.googleapis.com/flight-data-lab-501011-web/index.html">
+    <img src="docs/images/kepler-demo.gif" width="720" alt="Kepler 지도 — 분쟁지역 영공 회피 데모">
+  </a>
+</p>
 
-> 분쟁지역 상공의 **밀도 공백**과 주변국의 정상 밀집이 한눈에 대비된다
+<p align="center">
+  <a href="https://storage.googleapis.com/flight-data-lab-501011-web/index.html"><b>▶ Link</b></a>
+</p>
 
-<!-- TODO: docs/images/kepler-map.png (실제 지도 스크린샷) -->
+> 우크라이나(빨강), 중동(주황) 박스 안은 **가장자리에만 항공기가 몰리고 중앙이 공백**, 서유럽(파랑) 박스는 안팎이 빽빽하다. 분쟁지역 영공 회피가 드러나는 사례
 
 ---
 
@@ -108,14 +114,14 @@
 | `opensky_to_gcs` | 매 10분 | 수집: OpenSky → GCS raw |
 | `gcs_to_bq` | 00:00 | 적재: GCS → BigQuery bronze (어제분 적재) |
 | `dbt_transform` | 01:00 | 변환: bronze → staging → marts (dbt) |
-| `deploy_map` | 02:00 | 배포: marts → Kepler HTML → GCS 공개 지도 |
+| `deploy_map` | 02:00 | 배포: marts → Kepler HTML → GCS 지도 html |
 | `check_completeness` | 02:30 | 감시: 완결성 부족 시 Slack 경고 |
 
 ---
 
 ## Findings
 
-완결된 하루(전세계 수집 전환 후) 기준, 영역별 평균 항공기 밀도(면적 정규화):
+영역별 평균 항공기 밀도(면적 정규화)
 
 | 영역 | 밀도 (aircraft/sq°) | 서유럽 대비 |
 |---|---|---|
@@ -125,13 +131,11 @@
 
 분쟁지역의 영공 회피가 밀도 공백으로 뚜렷이 나타난다.
 
-<!-- TODO: 시간대·요일 패턴 (#30 분석 완료 후 보강) -->
-
 ---
 
 ## Getting Started
 
-> 로컬 kind 클러스터 + GCP 프로젝트가 필요하다. 아래는 개요이며, 상세는 각 문서 참조.
+> 로컬 kind 클러스터 + GCP 프로젝트 필요
 
 1. **kind 클러스터 + Airflow (Helm)** 배포 (`helm-values-airflow.yaml`)
 2. **모니터링 스택** 배포 (`helm-values-monitoring.yaml`)
@@ -139,9 +143,6 @@
 4. **이미지 빌드 + kind load**: `dbt-flight`, `kepler-map`, `flight-quality-exporter`
 5. **DAG 배포**: git-sync가 GitHub에서 자동 pull
 
-<!-- TODO: 상세 셋업 문서 링크 -->
-
-[ADR-0001]: docs/adr/0001-dbt-scheduling-time-offset-vs-asset.md
-[ADR-0002]: docs/adr/0002-data-quality-metrics-exporter-vs-pushgateway.md
+<br>
 
 [^1]: Ostroumov et al. (2022), *Preliminary Estimation of War Impact in Ukraine on the Global Air Transportation*, IEEE ACIT · DCU (2025), *Impact analysis of Russian-Ukrainian war on airspace*, J. Air Transport Management. — OpenSky ADS-B 데이터로 분쟁 영공 회피·항로 재설정을 정량 분석.
