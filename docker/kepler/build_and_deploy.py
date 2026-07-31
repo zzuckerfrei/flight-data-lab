@@ -111,7 +111,25 @@ config = {
 
 m = KeplerGl(height=700, data={"aircraft": df, "regions": regions_geojson}, config=config)
 m.save_to_html(file_name=OUT, config=config)
-print(f"HTML 생성: {OUT}")
+
+# ★ 마운트 크기 오측정 버그 수정 (#46 계열).
+#   원인: Kepler가 #app 컨테이너를 AutoSizer로 재서 지도 캔버스 크기를 정하는데, save_to_html
+#   기본 HTML엔 컨테이너 height CSS가 없어 로드 시점에 '부분 크기'로 측정됨 → 지도가 작게 렌더.
+#   'switch to dual map view' 토글이나 창 리사이즈가 resize 이벤트를 쏘면 재측정돼 펴졌음(방문자 조작 필요).
+#   해결: <head>에 (1) 뷰포트 크기 CSS + (2) load 후 resize 자동 발생 스크립트 주입.
+#   ★ JS를 </body>에 주입하면 임베드 번들이 깨졌던 이력 → head에만 주입(안전).
+_FIX = (
+    '<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden}'
+    '#app{position:absolute;top:0;left:0;width:100%;height:100%}</style>'
+    '<script>window.addEventListener("load",function(){'
+    'setTimeout(function(){window.dispatchEvent(new Event("resize"))},300)})</script>'
+)
+with open(OUT, "r", encoding="utf-8") as _f:
+    _html = _f.read()
+_html = _html.replace("</head>", _FIX + "</head>", 1)
+with open(OUT, "w", encoding="utf-8") as _f:
+    _f.write(_html)
+print(f"HTML 생성 + 마운트크기 수정 주입: {OUT}")
 
 # ── 3) GCS 웹 버킷 업로드 (index.html) ──
 gcs = storage.Client(project=PROJECT)
