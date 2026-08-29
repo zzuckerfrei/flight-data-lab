@@ -1,5 +1,6 @@
 -- intermediate: staging의 항공기 점을 정사각 격자 셀로 버킷팅해 (날짜 × 셀 × region)별 대수를 집계한다.
---   staging → intermediate → marts medallion의 '중간 재사용 층'(#25). marts가 이걸 ref로 소비한다.
+--   staging → intermediate → marts medallion의 '중간 재사용 층'(#25).
+--   재사용하려고 뺐는데 실제로 쓰는 건 mart_grid_density 한 곳뿐이다. 합칠지는 #52 참고.
 -- ★ 왜 격자 count가 곧 밀도인가: 셀 크기가 균일(기본 0.5°×0.5°)이라 셀 간 대수 비교 = 밀도 비교.
 --   region 단위 밀도(mart_region_density)가 면적으로 나눈 이유(박스 크기가 제각각)와 대비 —
 --   격자는 셀이 균일해 분모(면적)가 불필요하다.
