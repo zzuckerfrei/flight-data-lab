@@ -39,6 +39,11 @@ utc_date() {  # $1 = 며칠 전(0=오늘)
 }
 TODAY_C=$(utc_date 0 %Y%m%d)     # GCS 파티션용 (dt=20260808)
 YDAY=$(utc_date 1 %Y-%m-%d)      # BQ 완결일 판정용
+DBEFORE=$(utc_date 2 %Y-%m-%d)   # 그제 — dbt 실행 전 구간의 mart 기대값
+# mart를 채우는 dbt_transform은 01:00 UTC에 돈다. 따라서 00:00~01:05 UTC에 점검하면
+# mart가 아직 "그제분"인 것이 정상이다. 이 구간을 구분하지 않으면 매번 오탐이 난다.
+NOW_HM=$((10#$(date -u +%H%M)))
+MART_READY_HM=105                # 01:05 UTC = dbt 완료 기대 시각(01:00 시작 + 여유)
 
 echo "flight-data-lab 헬스체크 — $(date -u '+%Y-%m-%d %H:%M UTC') / $(date '+%H:%M %Z')"
 
@@ -141,6 +146,8 @@ else
   MART_DAY="${MART_MAX%% *}"
   if [ "$MART_DAY" = "$YDAY" ]; then
     ok "mart 최신 $MART_MAX (어제분 = 하루당기기 기준 정상)"
+  elif [ "$MART_DAY" = "$DBEFORE" ] && [ "$NOW_HM" -lt "$MART_READY_HM" ]; then
+    ok "mart 최신 $MART_MAX (그제분 — 오늘 dbt_transform(01:00 UTC) 실행 전이라 정상)"
   else
     bad "mart 최신 $MART_MAX — 기대값 ${YDAY} (dbt_transform 확인 필요)"
   fi
