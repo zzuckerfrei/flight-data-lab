@@ -9,6 +9,10 @@
 --   각 관심 영역 bbox(docs/collection-regions.md) 안에 들면 그 region, 아니면 'other'(관심 큰박스 안 주변 배경).
 --   ★ 나중에 다른 주제(태평양·북극 등)는 이 WHERE 범위만 바꾸면 raw에서 재분석(재수집 불필요).
 
+-- ★ 소스 혼재(2026-09-04~): OpenSky는 ADS-B 외 FLARM(글라이더) 등도 섞어 보낸다.
+--   staging은 어느 것도 버리지 않는다(1:1 정제 원칙 + "언제부터 무엇이 들어왔나"를 되짚기 위해).
+--   분석 목적에 맞는 선택은 marts에서 position_source로 한다.
+
 with source as (
     select snapshot_time, raw, _loaded_at    -- bronze.region('eurasia')은 안 씀(아래서 좌표로 파생)
     from {{ source('bronze', 'opensky_states_bronze') }}

@@ -4,6 +4,10 @@
 --   지도는 개별 좌표가 있어야 점 구름/공백이 보이므로 위경도를 살린 원자 grain으로 만든다.
 -- 1행 = 1항공기 × 1스냅샷(30분 버킷). 시간축(snapshot_bucket)으로 재생하면 분포 변화 애니메이션.
 
+-- ★ 2026-09-04 유입된 FLARM(글라이더, position_source=3)은 제외한다.
+--   민항기 항로를 보여주는 지도라 알프스 글라이더가 점으로 찍히면 의미가 흐려진다.
+--   배경 설명은 mart_region_density.sql 헤더 참조.
+
 with air as (
     select
         snapshot_time,
@@ -16,6 +20,7 @@ with air as (
         velocity
     from {{ ref('stg_states') }}
     where on_ground = false                 -- 비행 중만(지상 제외 = 영공 회피 분석 대상)
+      and position_source = 0               -- ADS-B(민항기)만. 지도에 글라이더가 찍히지 않게
       and longitude is not null             -- 좌표 없는 행은 지도에 못 찍음
       and latitude is not null
       -- 30분 샘플링: 10분 간격 원본 중 정각/30분 스냅샷만 남긴다(1시간=성김, 10분=과밀의 중간).

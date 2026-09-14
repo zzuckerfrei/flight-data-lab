@@ -6,6 +6,9 @@
 --   격자는 셀이 균일해 분모(면적)가 불필요하다.
 -- 셀 크기는 var(grid_cell_deg)로 조정 가능(0.5 → 0.25면 4배 촘촘). 재수집 없이 해상도만 변경.
 
+-- ★ FLARM(글라이더, position_source=3) 제외 — mart_region_density와 동일 기준.
+--   배경은 mart_region_density.sql 헤더 참조.
+
 with flying as (
     select
         date(snapshot_time) as dt,
@@ -14,6 +17,7 @@ with flying as (
         latitude
     from {{ ref('stg_states') }}
     where on_ground = false          -- 영공 회피 분석: 비행 중 항공기만(지상 제외)
+      and position_source = 0        -- ADS-B(민항기)만. mart_region_density와 동일 기준
       and longitude is not null
       and latitude  is not null
 ),

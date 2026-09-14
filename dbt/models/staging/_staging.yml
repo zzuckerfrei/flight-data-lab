@@ -40,12 +40,16 @@ models:
           - dbt_utils.accepted_range:
               min_value: -180
               max_value: 180
+              config:
+                where: "position_source = 0"
       - name: latitude
         description: "index 6. 위도. 범위 벗어나면 필드 밀림 의심."
         data_tests:
           - dbt_utils.accepted_range:
               min_value: -90
               max_value: 90
+              config:
+                where: "position_source = 0"
       - name: baro_altitude
         description: "index 7. 기압 고도(m). null 가능."
       - name: on_ground
@@ -55,12 +59,20 @@ models:
         data_tests:
           - dbt_utils.accepted_range:
               min_value: 0
+              config:
+                where: "position_source = 0"
       - name: true_track
-        description: "index 10. 진행 방향(도, 북=0). null 가능. 0~360."
+        description: "index 10. 진행 방향(도, 북=0). null 가능. 0~360(ADS-B 기준)."
         data_tests:
+          # ADS-B(position_source=0)만 검사한다.
+          # 2026-09-04부터 FLARM(=3) 데이터가 들어오기 시작했는데 이 값이 360을 넘는다(최대 505.5).
+          # 이 테스트의 목적은 "인덱스 밀림 감지"이고 그 전제는 ADS-B 규격이라, 규격이 다른
+          # FLARM까지 같은 자로 재면 정상 데이터를 장애로 본다. 실제로 7일간 dbt가 막혔다.
           - dbt_utils.accepted_range:
               min_value: 0
               max_value: 360
+              config:
+                where: "position_source = 0"
       - name: vertical_rate
         description: "index 11. 수직 속도(m/s, +상승). null 가능."
       - name: sensors
@@ -72,7 +84,13 @@ models:
       - name: spi
         description: "index 15. 특수목적 지시자(BOOL)."
       - name: position_source
-        description: "index 16. 위치 출처(0=ADS-B, 1=ASTERIX, 2=MLAT, 3=FLARM)."
+        description: >
+          index 16. 위치 출처(0=ADS-B, 1=ASTERIX, 2=MLAT, 3=FLARM).
+          ★ 2026-09-04부터 3(FLARM=글라이더·경항공기)이 섞여 들어오기 시작했다.
+          ADS-B와 규격이 달라(속도 중앙값 154km/h·고도 1.4km vs 786km/h·10km)
+          위 물리 범위 테스트들은 ADS-B(0) 기준이므로 where로 대상을 한정한다.
+          marts는 민항기 분석이 목적이라 0만 사용한다.
+          이 accepted_values는 '새 출처 유입 조기경보' 역할 — 값이 늘면 여기서 먼저 잡힌다.
         data_tests:
           - accepted_values:
               values: [0, 1, 2, 3]

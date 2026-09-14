@@ -8,11 +8,19 @@
 --   - 밀도는 관심 3영역만 계산(other=주변 배경은 면적이 크고 불규칙 → 밀도 지표에서 제외, 지도 배경으로만).
 --   - coverage는 (날짜×영역)이 아니라 날짜 단위(수집이 큰 박스 하나라 완결도도 하나).
 
+-- ★ 2026-09-04: OpenSky 응답에 FLARM(position_source=3) 데이터가 섞이기 시작했다.
+--   FLARM은 글라이더·경항공기용 충돌방지 프로토콜로 ADS-B와 별개다(실측: 속도 중앙값
+--   154km/h·고도 1.4km vs ADS-B 786km/h·10km). 거의 전부 west_europe로 분류되는데
+--   west_europe는 분쟁지역과 비교하는 '기준선'이라, 성격이 다른 비행체가 섞이면 비교 전제가 흐려진다.
+--   → 민항기 영공 회피가 이 mart의 질문이므로 ADS-B(0)만 집계한다.
+--   staging에는 그대로 남겨둔다(원본 충실 + 유입 이력 추적 가능).
+
 with states as (
     select snapshot_time, region, on_ground
     from {{ ref('stg_states') }}
     where on_ground = false          -- 영공 회피 분석: 비행 중 항공기만(지상 제외)
       and region != 'other'          -- 관심 3영역만 밀도 계산(other=주변 배경 제외)
+      and position_source = 0        -- ADS-B(민항기)만. 아래 FLARM 배경 참조
 ),
 
 -- region_area = 관심 영역별 bbox 면적(sq°) 참조 seed.
